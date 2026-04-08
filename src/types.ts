@@ -323,3 +323,20 @@ export interface Excuse {
     userId: number;
     username: string;
 }
+export type AbsenceResponse = {
+    conflicts: Absence[];
+    result: Absence;
+};
+export interface DeleteAbsenceResponses {
+    "data": { "success":boolean } | undefined, //either 'data' or 'errors' gets returned not both.
+    "errors":[
+        {
+            "code":number,
+            "title":string,
+            "details":string,
+            "meta":{
+                "category":string // Not sure if there are any other categories 'DEFAULT' is the only one I've seen.
+            }
+        }
+        ] | undefined
+}

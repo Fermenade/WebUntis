@@ -1,4 +1,4 @@
-import { serialize } from './cookie';
+import * as cookie from './cookie';
 import axios from 'axios';
 import { btoa } from './base-64';
 import { parse as fnsParse, startOfDay, format, type ParseOptions } from 'date-fns';
@@ -13,6 +13,7 @@ import type {
     Klasse,
     Lesson,
     NewsWidget,
+    AbsenceResponse,
     Room,
     SchoolYear,
     StatusData,
@@ -21,6 +22,7 @@ import type {
     Teacher,
     Timegrid,
     WebAPITimetable,
+    DeleteAbsenceResponses,
 } from './types';
 import type { InternalSchoolYear, SessionInformation } from './internal';
 import { WebUntisElementType } from './types';
@@ -34,7 +36,7 @@ import { WebUntisElementType } from './types';
  * @param options {ParseOptions | undefined}
  * @returns
  */
-const parse = <DateType extends Date>(
+const parseDateStr = <DateType extends Date>(
     dateStr: string | number,
     formatStr: string,
     referenceDate: DateType | number | string,
@@ -160,6 +162,9 @@ export class Base {
         if (response.data.result.code) throw new Error('Login returned error code: ' + response.data.result.code);
         if (!response.data.result.sessionId) throw new Error('Failed to login. No session id.');
         this.sessionInformation = response.data.result;
+        this.sessionInformation!.tenant = (response.headers['set-cookie'] as string[])
+            .map((x) => cookie.parse(x))
+            .find((x) => x['Tenant-Id'])!['Tenant-Id'];
         return response.data.result;
     }
 
@@ -170,16 +175,16 @@ export class Base {
     async getLatestSchoolyear(validateSession = true): Promise<SchoolYear> {
         const data = await this._request<InternalSchoolYear[]>('getSchoolyears', {}, validateSession);
         data.sort((a, b) => {
-            const na = parse(a.startDate, 'yyyyMMdd', new Date());
-            const nb = parse(b.startDate, 'yyyyMMdd', new Date());
+            const na = parseDateStr(a.startDate, 'yyyyMMdd', new Date());
+            const nb = parseDateStr(b.startDate, 'yyyyMMdd', new Date());
             return nb.getTime() - na.getTime();
         });
         if (!data[0]) throw new Error('Failed to receive school year');
         return {
             name: data[0].name,
             id: data[0].id,
-            startDate: parse(data[0].startDate, 'yyyyMMdd', new Date()),
-            endDate: parse(data[0].endDate, 'yyyyMMdd', new Date()),
+            startDate: parseDateStr(data[0].startDate, 'yyyyMMdd', new Date()),
+            endDate: parseDateStr(data[0].endDate, 'yyyyMMdd', new Date()),
         };
     }
 
@@ -190,8 +195,8 @@ export class Base {
     async getSchoolyears(validateSession = true): Promise<SchoolYear[]> {
         const data = await this._request<InternalSchoolYear[]>('getSchoolyears', {}, validateSession);
         data.sort((a, b) => {
-            const na = parse(a.startDate, 'yyyyMMdd', new Date());
-            const nb = parse(b.startDate, 'yyyyMMdd', new Date());
+            const na = parseDateStr(a.startDate, 'yyyyMMdd', new Date());
+            const nb = parseDateStr(b.startDate, 'yyyyMMdd', new Date());
             return nb.getTime() - na.getTime();
         });
         if (!data[0]) throw new Error('Failed to receive school year');
@@ -199,8 +204,8 @@ export class Base {
             return {
                 name: year.name,
                 id: year.id,
-                startDate: parse(year.startDate, 'yyyyMMdd', new Date()),
-                endDate: parse(year.endDate, 'yyyyMMdd', new Date()),
+                startDate: parseDateStr(year.startDate, 'yyyyMMdd', new Date()),
+                endDate: parseDateStr(year.endDate, 'yyyyMMdd', new Date()),
             };
         });
     }
@@ -217,7 +222,7 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/public/news/newsWidgetData`,
             params: {
-                date: Base.convertDateToUntis(date),
+                date: Base.convertDateToUntisDate(date),
             },
             headers: {
                 Cookie: this._buildCookies(),
@@ -260,8 +265,9 @@ export class Base {
      */
     _buildCookies() {
         let cookies = [];
-        cookies.push(serialize('JSESSIONID', this.sessionInformation!.sessionId!));
-        cookies.push(serialize('schoolname', this.schoolbase64));
+        cookies.push(cookie.serialize('JSESSIONID', this.sessionInformation!.sessionId!));
+        cookies.push(cookie.serialize('schoolname', this.schoolbase64));
+        cookies.push(cookie.serialize('Tenant-Id', this.sessionInformation!.tenant!)); // not necessary, but it's included in a lot of headers so it's added it to be sure
         return cookies.join('; ');
     }
 
@@ -335,10 +341,10 @@ export class Base {
     ): Promise<Lesson[]> {
         const additionalOptions: Record<string, unknown> = {};
         if (startDate) {
-            additionalOptions.startDate = Base.convertDateToUntis(startDate);
+            additionalOptions.startDate = Base.convertDateToUntisDate(startDate);
         }
         if (endDate) {
-            additionalOptions.endDate = Base.convertDateToUntis(endDate);
+            additionalOptions.endDate = Base.convertDateToUntisDate(endDate);
         }
 
         return this._request(
@@ -514,8 +520,8 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/homeworks/lessons`,
             params: {
-                startDate: Base.convertDateToUntis(rangeStart),
-                endDate: Base.convertDateToUntis(rangeEnd),
+                startDate: Base.convertDateToUntisDate(rangeStart),
+                endDate: Base.convertDateToUntisDate(rangeEnd),
             },
             headers: {
                 Cookie: this._buildCookies(),
@@ -525,7 +531,20 @@ export class Base {
         if (!response.data.data['homeworks']) throw new Error("Data object doesn't contains homeworks object.");
         return response.data.data;
     }
+    static convertUntisDateTime(date: string, time: string) {
+        const dat = Base.convertUntisDate(date);
+        const tim = Base.convertUntisTime(time);
 
+        return new Date(
+            dat.getFullYear(),
+            dat.getMonth(),
+            dat.getDate(),
+            tim.getHours(),
+            tim.getMinutes(),
+            tim.getSeconds(),
+            tim.getMilliseconds(),
+        );
+    }
     /**
      * Converts the untis date string format to a normal JS Date object
      * @param {string} date Untis date string
@@ -534,7 +553,7 @@ export class Base {
      */
     static convertUntisDate(date: string, baseDate = startOfDay(new Date())): Date {
         if (typeof date !== 'string') date = `${date}`;
-        return parse(date, 'yyyyMMdd', baseDate);
+        return parseDateStr(date, 'yyyyMMdd', baseDate);
     }
 
     /**
@@ -545,7 +564,7 @@ export class Base {
      */
     static convertUntisTime(time: number | string, baseDate = new Date()): Date {
         if (typeof time !== 'string') time = `${time}`;
-        return parse(time.padStart(4, '0'), 'Hmm', baseDate);
+        return parseDateStr(time.padStart(4, '0'), 'Hmm', baseDate);
     }
 
     /**
@@ -579,8 +598,8 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/homeworks/lessons`,
             params: {
-                startDate: Base.convertDateToUntis(rangeStart),
-                endDate: Base.convertDateToUntis(rangeEnd),
+                startDate: Base.convertDateToUntisDate(rangeStart),
+                endDate: Base.convertDateToUntisDate(rangeEnd),
             },
             headers: {
                 Cookie: this._buildCookies(),
@@ -611,8 +630,8 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/exams`,
             params: {
-                startDate: Base.convertDateToUntis(rangeStart),
-                endDate: Base.convertDateToUntis(rangeEnd),
+                startDate: Base.convertDateToUntisDate(rangeStart),
+                endDate: Base.convertDateToUntisDate(rangeEnd),
                 klasseId: klasseId,
                 withGrades: withGrades,
             },
@@ -805,7 +824,7 @@ export class Base {
      * @param {Date} date
      * @returns {String}
      */
-    static convertDateToUntis(date: Date): string {
+    static convertDateToUntisDate(date: Date): string {
         return (
             date.getFullYear().toString() +
             (date.getMonth() + 1 < 10 ? '0' + (date.getMonth() + 1) : date.getMonth() + 1).toString() +
@@ -813,6 +832,207 @@ export class Base {
         );
     }
 
+    /**
+     * Convert a JS Date Object to a WebUntis time string
+     * @param {Date} date
+     * @return {String}
+     */
+    static convertDateToUntisTime(date: Date): string {
+        return date.getHours().toString() + date.getMinutes();
+    }
+
+    /**
+     * Get CSRF Token
+     * @private
+     * @return {String}
+     */
+    async getCSRFToken() {
+        const resp = await this.axios({
+            method: 'GET',
+            url: '/WebUntis/embedded.do',
+            headers: {
+                Cookie: this._buildCookies(),
+            },
+        });
+
+        //For operations like DELETE, PUSH a CSRF-Token is required in the header
+        //this token can only be obtained by GET /WebUntis/embedded.do
+        //The token is sent inside an object inside a script tag inside an HTML document (wtf)
+        //Email, Name, Method Names, App Colors, User Role, Tentant-Id and the CSRF-Token
+        const e = this.extractObjectByName(resp.data, 'grupet');
+        return e['csrfToken'] as string;
+    }
+
+    /**
+     * Make a CSRF Request with the current session
+     * @param {string} method
+     * @param {string} url
+     * @param {object | null} data The data sent with the request
+     * @param {boolean} [validateSession=true] Whether the session should be checked first
+     * @returns {Promise.<any>}
+     * @private
+     */
+    async _csrfRequest(
+        method: string,
+        url: string,
+        data: object | null = null,
+        validateSession: boolean = true,
+    ): Promise<any> {
+        if (validateSession && !(await this.validateSession())) throw new Error('Current Session is not valid');
+        if (!validateSession && !this.sessionInformation?.csrfToken) throw new Error('Current Session is not valid');
+        else if (validateSession && !this.sessionInformation?.csrfToken) {
+            this.sessionInformation!.csrfToken = await this.getCSRFToken();
+        }
+
+        return await this.axios({
+            method: method,
+            url: url,
+            data: data,
+            headers: {
+                Cookie: this._buildCookies(),
+                'Content-Type': 'application/json',
+                'Accept-Encoding': 'gzip, deflate, br, zstd',
+                'X-CSRF-TOKEN': this.sessionInformation?.csrfToken,
+            },
+        });
+    }
+
+    /**
+     * Extracts an object out of an HTML document that contains a script tag with the object.
+     * @param {string} html
+     * @param {string} objName The name of the obj key
+     * @return {any} The extracted object
+     */
+    extractObjectByName(html: string, objName: string): any {
+        const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)];
+
+        for (const [, script] of scripts) {
+            const reg = new RegExp(`${objName}\\s*?:\\s*?\{`);
+            const e = script.match(reg);
+
+            const start = script.indexOf('{', e!['index']);
+            if (start === -1) continue;
+
+            let braceCount = 0;
+            let end = start;
+
+            for (; end < script.length; end++) {
+                if (script[end] === '{') braceCount++;
+                if (script[end] === '}') braceCount--;
+
+                if (braceCount === 0) break;
+            }
+
+            if (braceCount !== 0) {
+                throw new Error(`Unbalanced braces in object for ${objName}`);
+            }
+            const x = script.slice(start, end + 1);
+            return JSON.parse(x);
+        }
+
+        throw new Error(`Variable '${objName}' not found in any script tag`);
+    }
+
+    /**
+     * Add your own absence
+     * This fails if you don't have permission.
+     * @param {Date} start
+     * @param {Date} end
+     * @param {string} text
+     * @param {number} [reasonId=-1]
+     * @param {boolean} [validateSession=true]
+     */
+    async postOwnAbsentTime(start: Date, end: Date, text: string, reasonId: number = -1, validateSession = true) {
+        const data = {
+            startDate: parseInt(Base.convertDateToUntisDate(start)),
+            startTime: parseInt(Base.convertDateToUntisTime(start)),
+            endDate: parseInt(Base.convertDateToUntisDate(end)),
+            endTime: parseInt(Base.convertDateToUntisTime(end)),
+            text: text,
+            reasonId: reasonId,
+            studentId: this.sessionInformation?.personId,
+        };
+        const response = await this._csrfRequest(
+            'POST',
+            '/WebUntis/api/classreg/absences/students/self',
+            data,
+            validateSession,
+        );
+        if (!response.data) throw new Error("Server didn't return any result.");
+        if (response.status != 200) throw new Error('Server returned error code: ' + response.status);
+        const absenceResponse = response.data.data as AbsenceResponse;
+        if (absenceResponse.conflicts.length != 0) throw new Error("Absence conflict, couldn't insert.");
+        return absenceResponse;
+    }
+
+    /**
+     * Delete your own absence
+     * This fails if you don't have permission
+     * @param {number} id The id of the absence
+     * @param {boolean} [validateSession=true]
+     */
+    async deleteOwnAbsentTime(id: number, validateSession = true) {
+        return await this.deleteOwnAbsentTimes([id], validateSession);
+    }
+
+    /**
+     * Delete your own absences
+     * This fails if you don't have permission.
+     * @param {number[]} ids The ids of the absences
+     * @param validateSession
+     */
+    async deleteOwnAbsentTimes(ids: number[], validateSession = true) {
+        const data = { absenceIds: ids };
+        const response = await this._csrfRequest(
+            'DELETE',
+            '/WebUntis/api/classreg/absences/students',
+            data,
+            validateSession,
+        );
+        if (!response.data) throw new Error("Server didn't return any result.");
+        if (response.status != 200) throw new Error('Server returned error code: ' + response.status);
+        const absenceResponse = response.data.data as DeleteAbsenceResponses;
+        if (absenceResponse.errors) throw new Error("Absence conflict, couldn't delete.");
+        return absenceResponse;
+    }
+
+    /**
+     * Update your own absence
+     * This fails if you don't have permission.
+     * @param {number} absenceId
+     * @param {Date} start
+     * @param {Date} end
+     * @param {string} text
+     * @param {number} reasonId
+     * @param {boolean} [validateSession=true]
+     */
+    async putOwnAbsentTime(
+        absenceId: number,
+        start: Date,
+        end: Date,
+        text: string,
+        reasonId: number,
+        validateSession = true,
+    ) {
+        const data = {
+            absenceId: absenceId,
+            startDate: parseInt(Base.convertDateToUntisDate(start)),
+            startTime: parseInt(Base.convertDateToUntisTime(start)),
+            endDate: parseInt(Base.convertDateToUntisDate(end)),
+            endTime: parseInt(Base.convertDateToUntisTime(end)),
+            text: text,
+            reasonId: reasonId,
+            studentId: this.sessionInformation?.personId,
+        };
+        const response = await this._csrfRequest(
+            'POST',
+            '/WebUntis/api/classreg/absences/students/edit',
+            data,
+            validateSession,
+        );
+        if (response.status == 500) throw new Error("Couldn't edit absence.");
+        return response.data.data as AbsenceResponse;
+    }
     /**
      * Make a JSON RPC Request with the current session
      * @param {string} method
@@ -870,8 +1090,8 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/classreg/absences/students`,
             params: {
-                startDate: Base.convertDateToUntis(rangeStart),
-                endDate: Base.convertDateToUntis(rangeEnd),
+                startDate: Base.convertDateToUntisDate(rangeStart),
+                endDate: Base.convertDateToUntisDate(rangeEnd),
                 studentId: this.sessionInformation!.personId!,
                 excuseStatusId: excuseStatusId,
             },
@@ -910,8 +1130,8 @@ export class Base {
             params: {
                 name: 'Excuse',
                 format: 'pdf',
-                rpt_sd: Base.convertDateToUntis(rangeStart),
-                rpt_ed: Base.convertDateToUntis(rangeEnd),
+                rpt_sd: Base.convertDateToUntisDate(rangeStart),
+                rpt_ed: Base.convertDateToUntisDate(rangeEnd),
                 excuseStatusId: excuseStatusId,
                 studentId: this.sessionInformation!.personId!,
                 withLateness: lateness,

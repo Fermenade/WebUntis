@@ -7,4 +7,6 @@ export type SessionInformation = {
     sessionId?: string;
     personType?: number;
     jwt_token?: string;
+    tenant?:string
+    csrfToken?: string;
 };
