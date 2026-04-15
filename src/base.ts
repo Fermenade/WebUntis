@@ -843,10 +843,10 @@ export class Base {
 
     /**
      * Get CSRF Token
-     * @private
      * @return {String}
+     * @private
      */
-    async getCSRFToken() {
+    async getCSRFToken(): Promise<string> {
         const resp = await this.axios({
             method: 'GET',
             url: '/WebUntis/embedded.do',
@@ -859,8 +859,20 @@ export class Base {
         //this token can only be obtained by GET /WebUntis/embedded.do
         //The token is sent inside an object inside a script tag inside an HTML document (wtf)
         //Email, Name, Method Names, App Colors, User Role, Tentant-Id and the CSRF-Token
-        const e = this.extractObjectByName(resp.data, 'grupet');
-        return e['csrfToken'] as string;
+        try {
+            const grupetObj = this.extractObjectByName(resp.data, 'grupet');
+            if(!grupetObj)throw new SyntaxError('CSRF token object not found');
+            return grupetObj['csrfToken'] as string;
+        }
+        catch (error) {
+            if(error instanceof SyntaxError) {
+                throw new Error('Object containing CSRF token malformed');
+            }
+            else if (error instanceof Error) {
+                throw new Error('Object containing CSRF token not found');
+            }
+            throw error;
+        }
     }
 
     /**
@@ -902,19 +914,22 @@ export class Base {
      * @param {string} html
      * @param {string} objName The name of the obj key
      * @return {any} The extracted object
+     * @throws {SyntaxError} Throws when syntax of object wasn't valid
+     * @throws {Error} When variable isn't found
+     * @private
      */
     extractObjectByName(html: string, objName: string): any {
-        const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)];
-
+        let scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)];
         for (const [, script] of scripts) {
             const reg = new RegExp(`${objName}\\s*?:\\s*?\{`);
-            const e = script.match(reg);
+            const regMatch = script.match(reg);
 
-            const start = script.indexOf('{', e!['index']);
+            if (!regMatch) continue;
+            const start = script.indexOf('{', regMatch['index']);
             if (start === -1) continue;
+            let end = start;
 
             let braceCount = 0;
-            let end = start;
 
             for (; end < script.length; end++) {
                 if (script[end] === '{') braceCount++;
@@ -922,12 +937,7 @@ export class Base {
 
                 if (braceCount === 0) break;
             }
-
-            if (braceCount !== 0) {
-                throw new Error(`Unbalanced braces in object for ${objName}`);
-            }
-            const x = script.slice(start, end + 1);
-            return JSON.parse(x);
+            return JSON.parse(script.slice(start, end + 1)) as object;
         }
 
         throw new Error(`Variable '${objName}' not found in any script tag`);
