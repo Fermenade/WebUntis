@@ -891,7 +891,7 @@ export class Base {
         validateSession: boolean = true,
     ): Promise<any> {
         if (validateSession && !(await this.validateSession())) throw new Error('Current Session is not valid');
-        if (!validateSession && !this.sessionInformation?.csrfToken) throw new Error('Current Session is not valid');
+        if (!validateSession && !this.sessionInformation?.csrfToken) throw new Error('Current Session is not valid, missing CSRF token');
         else if (validateSession && !this.sessionInformation?.csrfToken) {
             this.sessionInformation!.csrfToken = await this.getCSRFToken();
         }
@@ -952,7 +952,7 @@ export class Base {
      * @param {number} [reasonId=-1]
      * @param {boolean} [validateSession=true]
      */
-    async postOwnAbsentTime(start: Date, end: Date, text: string, reasonId: number = -1, validateSession = true) {
+    async addOwnAbsentTime(start: Date, end: Date, text: string, reasonId: number = -1, validateSession = true) {
         const data = {
             startDate: parseInt(Base.convertDateToUntisDate(start)),
             startTime: parseInt(Base.convertDateToUntisTime(start)),
@@ -1016,7 +1016,7 @@ export class Base {
      * @param {number} reasonId
      * @param {boolean} [validateSession=true]
      */
-    async putOwnAbsentTime(
+    async updateOwnAbsentTime(
         absenceId: number,
         start: Date,
         end: Date,
