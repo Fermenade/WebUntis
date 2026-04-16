@@ -267,7 +267,8 @@ export class Base {
         let cookies = [];
         cookies.push(cookie.serialize('JSESSIONID', this.sessionInformation!.sessionId!));
         cookies.push(cookie.serialize('schoolname', this.schoolbase64));
-        cookies.push(cookie.serialize('Tenant-Id', this.sessionInformation!.tenant!)); // not necessary, but it's included in a lot of headers so it's added it to be sure
+        if (this.sessionInformation!.tenant)
+            cookies.push(cookie.serialize('Tenant-Id', this.sessionInformation!.tenant!)); // not necessary, but it's included in a lot of headers so it's added it to be sure
         return cookies.join('; ');
     }
 
