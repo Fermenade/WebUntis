@@ -238,7 +238,7 @@ export class Base {
     async getInbox(validateSession = true): Promise<Inbox> {
         this._checkAnonymous();
         if (validateSession && !(await this.validateSession())) throw new Error('Current Session is not valid');
-        //first get JWT Token
+        // first get JWT Token
         if (typeof this.sessionInformation!.jwt_token != 'string') await this._getJWT();
         const response = await this.axios({
             method: 'GET',
@@ -282,7 +282,7 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/token/new`,
             headers: {
-                //Authorization: `Bearer ${this._getToken()}`,
+                // Authorization: `Bearer ${this._getToken()}`,
                 Cookie: this._buildCookies(),
             },
         });
@@ -862,10 +862,10 @@ export class Base {
             },
         });
 
-        //For operations like DELETE, PUSH a CSRF-Token is required in the header
-        //this token can only be obtained by GET /WebUntis/embedded.do
-        //The token is sent inside an object inside a script tag inside an HTML document (wtf)
-        //Email, Name, Method Names, App Colors, User Role, Tentant-Id and the CSRF-Token
+        // For operations like DELETE, PUSH a CSRF-Token is required in the header
+        // this token can only be obtained by GET /WebUntis/embedded.do
+        // The token is sent inside an object inside a script tag inside an HTML document (wtf)
+        // Email, Name, Method Names, App Colors, User Role, Tentant-Id and the CSRF-Token
         try {
             const grupetObj = this.extractObjectByName(resp.data, 'grupet');
             if(!grupetObj)throw new SyntaxError('CSRF token object not found');
