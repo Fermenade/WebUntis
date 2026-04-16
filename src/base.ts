@@ -222,7 +222,7 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/public/news/newsWidgetData`,
             params: {
-                date: Base.convertDateToUntisDate(date),
+                date: Base.convertDateToUntis(date),
             },
             headers: {
                 Cookie: this._buildCookies(),
@@ -342,10 +342,10 @@ export class Base {
     ): Promise<Lesson[]> {
         const additionalOptions: Record<string, unknown> = {};
         if (startDate) {
-            additionalOptions.startDate = Base.convertDateToUntisDate(startDate);
+            additionalOptions.startDate = Base.convertDateToUntis(startDate);
         }
         if (endDate) {
-            additionalOptions.endDate = Base.convertDateToUntisDate(endDate);
+            additionalOptions.endDate = Base.convertDateToUntis(endDate);
         }
 
         return this._request(
@@ -521,8 +521,8 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/homeworks/lessons`,
             params: {
-                startDate: Base.convertDateToUntisDate(rangeStart),
-                endDate: Base.convertDateToUntisDate(rangeEnd),
+                startDate: Base.convertDateToUntis(rangeStart),
+                endDate: Base.convertDateToUntis(rangeEnd),
             },
             headers: {
                 Cookie: this._buildCookies(),
@@ -599,8 +599,8 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/homeworks/lessons`,
             params: {
-                startDate: Base.convertDateToUntisDate(rangeStart),
-                endDate: Base.convertDateToUntisDate(rangeEnd),
+                startDate: Base.convertDateToUntis(rangeStart),
+                endDate: Base.convertDateToUntis(rangeEnd),
             },
             headers: {
                 Cookie: this._buildCookies(),
@@ -631,8 +631,8 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/exams`,
             params: {
-                startDate: Base.convertDateToUntisDate(rangeStart),
-                endDate: Base.convertDateToUntisDate(rangeEnd),
+                startDate: Base.convertDateToUntis(rangeStart),
+                endDate: Base.convertDateToUntis(rangeEnd),
                 klasseId: klasseId,
                 withGrades: withGrades,
             },
@@ -825,7 +825,7 @@ export class Base {
      * @param {Date} date
      * @returns {String}
      */
-    static convertDateToUntisDate(date: Date): string {
+    static convertDateToUntis(date: Date): string {
         return (
             date.getFullYear().toString() +
             (date.getMonth() + 1 < 10 ? '0' + (date.getMonth() + 1) : date.getMonth() + 1).toString() +
@@ -955,9 +955,9 @@ export class Base {
      */
     async addOwnAbsentTime(start: Date, end: Date, text: string, reasonId: number = -1, validateSession = true) {
         const data = {
-            startDate: parseInt(Base.convertDateToUntisDate(start)),
+            startDate: parseInt(Base.convertDateToUntis(start)),
             startTime: parseInt(Base.convertDateToUntisTime(start)),
-            endDate: parseInt(Base.convertDateToUntisDate(end)),
+            endDate: parseInt(Base.convertDateToUntis(end)),
             endTime: parseInt(Base.convertDateToUntisTime(end)),
             text: text,
             reasonId: reasonId,
@@ -1027,9 +1027,9 @@ export class Base {
     ) {
         const data = {
             absenceId: absenceId,
-            startDate: parseInt(Base.convertDateToUntisDate(start)),
+            startDate: parseInt(Base.convertDateToUntis(start)),
             startTime: parseInt(Base.convertDateToUntisTime(start)),
-            endDate: parseInt(Base.convertDateToUntisDate(end)),
+            endDate: parseInt(Base.convertDateToUntis(end)),
             endTime: parseInt(Base.convertDateToUntisTime(end)),
             text: text,
             reasonId: reasonId,
@@ -1101,8 +1101,8 @@ export class Base {
             method: 'GET',
             url: `/WebUntis/api/classreg/absences/students`,
             params: {
-                startDate: Base.convertDateToUntisDate(rangeStart),
-                endDate: Base.convertDateToUntisDate(rangeEnd),
+                startDate: Base.convertDateToUntis(rangeStart),
+                endDate: Base.convertDateToUntis(rangeEnd),
                 studentId: this.sessionInformation!.personId!,
                 excuseStatusId: excuseStatusId,
             },
@@ -1141,8 +1141,8 @@ export class Base {
             params: {
                 name: 'Excuse',
                 format: 'pdf',
-                rpt_sd: Base.convertDateToUntisDate(rangeStart),
-                rpt_ed: Base.convertDateToUntisDate(rangeEnd),
+                rpt_sd: Base.convertDateToUntis(rangeStart),
+                rpt_ed: Base.convertDateToUntis(rangeEnd),
                 excuseStatusId: excuseStatusId,
                 studentId: this.sessionInformation!.personId!,
                 withLateness: lateness,
