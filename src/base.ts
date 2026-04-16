@@ -532,6 +532,12 @@ export class Base {
         if (!response.data.data['homeworks']) throw new Error("Data object doesn't contains homeworks object.");
         return response.data.data;
     }
+
+    /**
+     * Convert date and time string to single date
+     * @param date
+     * @param time
+     */
     static convertUntisDateTime(date: string, time: string) {
         const dat = Base.convertUntisDate(date);
         const tim = Base.convertUntisTime(time);
@@ -991,6 +997,8 @@ export class Base {
      * This fails if you don't have permission.
      * @param {number[]} ids The ids of the absences
      * @param validateSession
+     * @return {Promise<DeleteAbsenceResponses>}
+     * @remarks If
      */
     async deleteOwnAbsentTimes(ids: number[], validateSession = true) {
         const data = { absenceIds: ids };
