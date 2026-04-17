@@ -323,10 +323,10 @@ export interface Excuse {
     userId: number;
     username: string;
 }
-export type AbsenceResponse = {
+export interface AbsenceResponse {
     conflicts: Absence[];
     result: Absence;
-};
+}
 export interface DeleteAbsenceResponses {
     data:
         | {

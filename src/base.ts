@@ -162,9 +162,6 @@ export class Base {
         if (response.data.result.code) throw new Error('Login returned error code: ' + response.data.result.code);
         if (!response.data.result.sessionId) throw new Error('Failed to login. No session id.');
         this.sessionInformation = response.data.result;
-        this.sessionInformation!.tenant = (response.headers['set-cookie'] as string[])
-            .map((x) => cookie.parse(x))
-            .find((x) => x['Tenant-Id'])!['Tenant-Id'];
         return response.data.result;
     }
 
@@ -267,8 +264,6 @@ export class Base {
         let cookies = [];
         cookies.push(cookie.serialize('JSESSIONID', this.sessionInformation!.sessionId!));
         cookies.push(cookie.serialize('schoolname', this.schoolbase64));
-        if (this.sessionInformation!.tenant)
-            cookies.push(cookie.serialize('Tenant-Id', this.sessionInformation!.tenant!)); // not necessary, but it's included in a lot of headers so it's added it to be sure
         return cookies.join('; ');
     }
 
