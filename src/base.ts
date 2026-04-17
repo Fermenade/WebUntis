@@ -905,7 +905,8 @@ export class Base {
         validateSession: boolean = true,
     ): Promise<any> {
         if (validateSession && !(await this.validateSession())) throw new Error('Current Session is not valid');
-        if (!validateSession && !this.sessionInformation?.csrfToken) throw new Error('Current Session is not valid, missing CSRF token');
+        if (!validateSession && !this.sessionInformation?.csrfToken)
+            throw new Error('Current Session is not valid, missing CSRF token');
         else if (validateSession && !this.sessionInformation?.csrfToken) {
             this.sessionInformation!.csrfToken = await this.getCSRFToken();
         }
@@ -943,9 +944,7 @@ export class Base {
             if (start === -1) continue;
             let end = start;
 
-            let braceCount = 0;
-
-            for (; end < script.length; end++) {
+            for (let braceCount = 0; end < script.length; end++) {
                 if (script[end] === '{') braceCount++;
                 if (script[end] === '}') braceCount--;
 
