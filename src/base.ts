@@ -983,9 +983,7 @@ export class Base {
         );
         if (!response.data) throw new Error("Server didn't return any result.");
         if (response.status != 200) throw new Error('Server returned error code: ' + response.status);
-        const absenceResponse = response.data.data as AbsenceResponse;
-        if (absenceResponse.conflicts.length != 0) throw new Error("Absence conflict, couldn't insert.");
-        return absenceResponse;
+        return response.data.data as AbsenceResponse;
     }
 
     /**
@@ -995,7 +993,7 @@ export class Base {
      * @param {boolean} [validateSession=true]
      */
     async deleteOwnAbsentTime(id: number, validateSession = true) {
-        return await this.deleteOwnAbsentTimes([id], validateSession);
+        return this.deleteOwnAbsentTimes([id], validateSession);
     }
 
     /**
@@ -1006,7 +1004,7 @@ export class Base {
      * @return {Promise<DeleteAbsenceResponses>}
      * @remarks If
      */
-    async deleteOwnAbsentTimes(ids: number[], validateSession = true) {
+    async deleteOwnAbsentTimes(ids: number[], validateSession = true): Promise<DeleteAbsenceResponses> {
         const data = { absenceIds: ids };
         const response = await this._csrfRequest(
             'DELETE',
@@ -1016,9 +1014,7 @@ export class Base {
         );
         if (!response.data) throw new Error("Server didn't return any result.");
         if (response.status != 200) throw new Error('Server returned error code: ' + response.status);
-        const absenceResponse = response.data.data as DeleteAbsenceResponses;
-        if (absenceResponse.errors) throw new Error("Absence conflict, couldn't delete.");
-        return absenceResponse;
+        return response.data.data as DeleteAbsenceResponses;
     }
 
     /**
