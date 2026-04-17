@@ -862,20 +862,27 @@ export class Base {
             },
         });
 
+        class UndefinedError extends Error {
+            constructor(message = 'Value is undefined') {
+                super(message);
+                this.name = 'UndefinedError';
+                Object.setPrototypeOf(this, new.target.prototype);
+            }
+        }
         // For operations like DELETE, PUSH a CSRF-Token is required in the header
         // this token can only be obtained by GET /WebUntis/embedded.do
         // The token is sent inside an object inside a script tag inside an HTML document (wtf)
         // Email, Name, Method Names, App Colors, User Role, Tentant-Id and the CSRF-Token
         try {
-            const grupetObj = this.extractObjectByName(resp.data, 'grupet');
-            if(!grupetObj)throw new SyntaxError('CSRF token object not found');
-            return grupetObj['csrfToken'] as string;
-        }
-        catch (error) {
-            if(error instanceof SyntaxError) {
+            const grupetObj = undefined; // this.extractObjectByName(resp.data, 'grupet')['csrfToken'];
+            if (!grupetObj) throw new UndefinedError('CSRF token object not found');
+            return grupetObj as string;
+        } catch (error) {
+            if (error instanceof SyntaxError) {
                 throw new Error('Object containing CSRF token malformed');
-            }
-            else if (error instanceof Error) {
+            } else if (error instanceof UndefinedError) {
+                throw new Error('CSRF token not found');
+            } else if (error instanceof Error) {
                 throw new Error('Object containing CSRF token not found');
             }
             throw error;
